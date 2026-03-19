@@ -10,11 +10,17 @@ import_optional_dependency(
     extra_name="viz",
 )
 
+from ._classification_inspector import ClassificationInspector  # noqa: E402
 from ._pca_inspector import PCAInspector  # noqa: E402
 from ._pls_regression_inspector import PLSRegressionInspector  # noqa: E402
 from ._preprocessing_inspector import PreprocessingInspector  # noqa: E402
 
-__all__ = ["PCAInspector", "PLSRegressionInspector", "PreprocessingInspector"]
+__all__ = [
+    "ClassificationInspector",
+    "PCAInspector",
+    "PLSRegressionInspector",
+    "PreprocessingInspector",
+]
 
 # Show experimental warning on module import
 warnings.warn(

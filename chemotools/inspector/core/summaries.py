@@ -149,3 +149,97 @@ class PreprocessingSummary:
                 lines.append(f"    - {s['name']} ({s['type']})")
         lines.append("=" * 60)
         return "\n".join(lines)
+
+
+@dataclass
+class ClassificationMetrics:
+    """Metrics for a single classification dataset split."""
+
+    accuracy: float
+    precision: float
+    recall: float
+    f1: float
+
+
+@dataclass(kw_only=True)
+class ClassificationSummary:
+    """Summary for classification models.
+
+    Attributes
+    ----------
+    model_type : str
+        Class name of the classifier.
+    has_preprocessing : bool
+        Whether the model includes preprocessing steps.
+    n_features : int
+        Number of input features.
+    n_samples : dict of str to int
+        Number of samples per dataset split.
+    n_classes : int
+        Number of classes.
+    class_names : list of str
+        Display names for each class.
+    has_predict_proba : bool
+        Whether the classifier supports ``predict_proba``.
+    preprocessing_steps : list of dict
+        Details of each preprocessing step.
+    train : ClassificationMetrics
+        Metrics on the training set.
+    test : ClassificationMetrics, optional
+        Metrics on the test set.
+    val : ClassificationMetrics, optional
+        Metrics on the validation set.
+    """
+
+    model_type: str
+    has_preprocessing: bool
+    n_features: int
+    n_samples: Dict[str, int]
+    n_classes: int
+    class_names: List[str]
+    has_predict_proba: bool
+    preprocessing_steps: List[Dict[str, Any]]
+    train: ClassificationMetrics
+    test: Optional[ClassificationMetrics] = None
+    val: Optional[ClassificationMetrics] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Return summary as a plain dictionary."""
+        return {k: v for k, v in asdict(self).items() if v is not None}
+
+    def __repr__(self) -> str:  # noqa: D105
+        lines = [
+            "=" * 60,
+            "Classification Inspector Summary",
+            "=" * 60,
+            f"  Classifier:           {self.model_type}",
+            f"  Preprocessing:        {self.has_preprocessing}",
+            f"  Input features:       {self.n_features}",
+            f"  Classes ({self.n_classes}):          {self.class_names}",
+            f"  Predict proba:        {self.has_predict_proba}",
+            f"  Datasets:             {self.n_samples}",
+        ]
+
+        if self.preprocessing_steps:
+            lines.append("-" * 60)
+            lines.append("  Preprocessing steps:")
+            for s in self.preprocessing_steps:
+                lines.append(f"    {s['step']}. {s['name']} ({s['type']})")
+
+        lines.append("-" * 60)
+        lines.append("  Metrics:")
+        lines.append(
+            f"  {'Dataset':<12} {'Accuracy':>10} {'Precision':>10} "
+            f"{'Recall':>10} {'F1':>10}"
+        )
+        lines.append(f"  {'-' * 52}")
+
+        for ds_name in ("train", "test", "val"):
+            m = getattr(self, ds_name)
+            if m is not None:
+                lines.append(
+                    f"  {ds_name:<12} {m.accuracy:>10.4f} {m.precision:>10.4f} "
+                    f"{m.recall:>10.4f} {m.f1:>10.4f}"
+                )
+        lines.append("=" * 60)
+        return "\n".join(lines)
