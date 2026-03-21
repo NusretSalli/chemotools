@@ -14,6 +14,8 @@ from chemotools.outliers import HotellingT2, QResiduals
 if TYPE_CHECKING:
     from matplotlib.figure import Figure
 
+    from chemotools.model_selection import CandidateSelector
+
 
 from .core.base import InspectorPlotConfig, _BaseInspector
 from .core.latent import LatentVariableMixin
@@ -159,6 +161,69 @@ class PCAInspector(SpectraMixin, LatentVariableMixin, _BaseInspector):
         )
 
         self._scores_cache: Dict[str, np.ndarray] = {}
+
+    @classmethod
+    def from_candidate_selector(
+        cls,
+        selector: CandidateSelector,
+        X_train: np.ndarray,
+        *,
+        rank: int = 1,
+        y_train: Optional[np.ndarray] = None,
+        X_test: Optional[np.ndarray] = None,
+        y_test: Optional[np.ndarray] = None,
+        X_val: Optional[np.ndarray] = None,
+        y_val: Optional[np.ndarray] = None,
+        x_axis: Optional[np.ndarray] = None,
+        confidence: float = 0.95,
+    ) -> PCAInspector:
+        """Create an inspector from a :class:`CandidateSelector` result.
+
+        The candidate identified by *rank* is cloned, fitted on the supplied
+        training data, and wrapped in a new ``PCAInspector``.
+
+        Parameters
+        ----------
+        selector : CandidateSelector
+            A fitted ``CandidateSelector`` instance.
+        X_train : array-like of shape (n_samples, n_features)
+            Training data used to refit the selected candidate.
+        rank : int, default=1
+            Rank of the candidate to inspect (1 = best).
+        y_train : array-like, optional
+            Training labels/targets (for coloring plots).
+        X_test : array-like, optional
+            Test data.
+        y_test : array-like, optional
+            Test labels/targets.
+        X_val : array-like, optional
+            Validation data.
+        y_val : array-like, optional
+            Validation labels/targets.
+        x_axis : array-like, optional
+            Feature names (e.g. wavenumbers).
+        confidence : float, default=0.95
+            Confidence level for outlier detection.
+
+        Returns
+        -------
+        PCAInspector
+        """
+        candidate = selector.get_candidate(rank=rank)
+        fitted = candidate.clone_estimator()
+        fitted.fit(X_train)
+
+        return cls(
+            model=fitted,
+            X_train=X_train,
+            y_train=y_train,
+            X_test=X_test,
+            y_test=y_test,
+            X_val=X_val,
+            y_val=y_val,
+            x_axis=x_axis,
+            confidence=confidence,
+        )
 
     # ==================================================================================
     # Properties (PCA-specific)

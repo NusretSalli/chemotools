@@ -6,14 +6,14 @@ model selection with enhanced candidate evaluation and RMSE metrics.
 # Authors: Nusret Emirhan Salli <nusret.emirhan.salli@gmail.com>
 # License: MIT
 
-from typing import Any, Callable, Dict, Iterator, List, Optional, Tuple, Union
+import operator
+import warnings
+from typing import Callable, Dict, Iterator, List, Optional, Union
 
-import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.base import BaseEstimator
 from sklearn.model_selection import GridSearchCV
 from sklearn.utils.validation import check_is_fitted
-import operator
 
 from ._fitted_model import BaseFittedModel
 
@@ -280,147 +280,39 @@ class CandidateSelector(BaseEstimator):
 
         return pd.DataFrame(records)
 
-    def _create_scatter_plot(
-        self,
-        x_metric: str,
-        y_metric: str,
-        color_by: Optional[str],
-        ax,
-        figsize: Tuple[int, int],
-        title: str,
-        xlabel: str,
-        ylabel: str,
-        hline: Optional[float] = None,
-    ):
-        """Internal helper to create scatter plots with consistent styling."""
-        check_is_fitted(self, ["candidates_"])
+    def plot_cv_metrics(self, *args, **kwargs):
+        """Plot RMSECV vs RMSE ratio.
 
-        # Auto-detect color_by parameter
-        if color_by is None and self.candidates_:
-            color_by = next(iter(self.candidates_[0].params), None)
-
-        # Group data by color_by parameter
-        groups: Dict[Any, List[Tuple[float, float]]] = {}
-        for c in self.candidates_:
-            x_val = getattr(c, x_metric, None) or c.to_dict().get(x_metric)
-            y_val = getattr(c, y_metric, None) or c.to_dict().get(y_metric)
-            if x_val is None or y_val is None:
-                continue
-            key = c.params.get(color_by) if color_by else c.rank
-            groups.setdefault(key, []).append((x_val, y_val))
-
-        if not groups:
-            raise ValueError(
-                f"No valid data found for metrics '{x_metric}' and '{y_metric}'."
-            )
-
-        if ax is None:
-            _, ax = plt.subplots(figsize=figsize)
-
-        markers = ["o", "s", "^", "D", "v", "*", "p", "h"]
-        cmap = plt.colormaps.get_cmap("tab10")
-
-        for idx, key in enumerate(sorted(groups.keys())):
-            data = groups[key]
-            ax.scatter(
-                [d[0] for d in data],
-                [d[1] for d in data],
-                marker=markers[idx % len(markers)],
-                c=[cmap(idx % 10)],
-                s=80,
-                label=str(key),
-                edgecolors="black",
-                linewidths=0.5,
-                alpha=0.8,
-            )
-
-        if hline is not None:
-            ax.axhline(y=hline, linestyle="-", color="green", linewidth=2, alpha=0.8)
-
-        ax.set_xlabel(xlabel, fontsize=11)
-        ax.set_ylabel(ylabel, fontsize=11)
-        ax.set_title(title, fontsize=12)
-
-        param_label = (
-            color_by.split("__")[-1] if color_by and "__" in color_by else color_by
-        )
-        ax.legend(title=param_label or "Group", loc="best", fontsize=9)
-        ax.grid(True, alpha=0.3)
-
-        return ax
-
-    def plot_cv_metrics(
-        self,
-        color_by: Optional[str] = None,
-        *,
-        ax=None,
-        figsize: Tuple[int, int] = (10, 6),
-        show_ratio_threshold: Optional[float] = 1.0,
-        title: Optional[str] = None,
-    ):
-        """Plot RMSECV vs RMSE ratio for model selection.
-
-        Parameters
-        ----------
-        color_by : str, optional
-            Parameter name to use for coloring points. If None, auto-detects.
-        ax : matplotlib.axes.Axes, optional
-            Axes to plot on. If None, creates a new figure.
-        figsize : tuple, default=(10, 6)
-            Figure size if creating a new figure.
-        show_ratio_threshold : float, default=1.0
-            Draws a horizontal line at this RMSE ratio value.
-        title : str, optional
-            Custom title for the plot.
-
-        Returns
-        -------
-        ax : matplotlib.axes.Axes
+        .. deprecated::
+            Use ``ModelSelectionInspector(selector).plot_cv_metrics()`` instead.
         """
-        return self._create_scatter_plot(
-            x_metric="rmsecv",
-            y_metric="rmse_ratio",
-            color_by=color_by,
-            ax=ax,
-            figsize=figsize,
-            title=title or "Cross-validation Error vs Overfitting",
-            xlabel="RMSECV",
-            ylabel="RMSECV / RMSEC",
-            hline=show_ratio_threshold,
+        warnings.warn(
+            "CandidateSelector.plot_cv_metrics() is deprecated. "
+            "Use ModelSelectionInspector(selector).plot_cv_metrics() instead.",
+            FutureWarning,
+            stacklevel=2,
+        )
+        from chemotools.inspector._model_selection_inspector import (
+            ModelSelectionInspector,
         )
 
-    def plot_score_vs_variance(
-        self,
-        color_by: Optional[str] = None,
-        *,
-        ax=None,
-        figsize: Tuple[int, int] = (10, 6),
-        title: Optional[str] = None,
-    ):
-        """Plot test score vs variance for model selection.
+        return ModelSelectionInspector(self).plot_cv_metrics(*args, **kwargs)
 
-        Parameters
-        ----------
-        color_by : str, optional
-            Parameter name to use for coloring points. If None, auto-detects.
-        ax : matplotlib.axes.Axes, optional
-            Axes to plot on. If None, creates a new figure.
-        figsize : tuple, default=(10, 6)
-            Figure size if creating a new figure.
-        title : str, optional
-            Custom title for the plot.
+    def plot_score_vs_variance(self, *args, **kwargs):
+        """Plot test score vs variance.
 
-        Returns
-        -------
-        ax : matplotlib.axes.Axes
+        .. deprecated::
+            Use ``ModelSelectionInspector(selector).plot_score_vs_variance()``
+            instead.
         """
-        return self._create_scatter_plot(
-            x_metric="variance",
-            y_metric="mean_test_score",
-            color_by=color_by,
-            ax=ax,
-            figsize=figsize,
-            title=title or "Model Stability vs Performance",
-            xlabel="Variance",
-            ylabel="Mean Test Score",
+        warnings.warn(
+            "CandidateSelector.plot_score_vs_variance() is deprecated. "
+            "Use ModelSelectionInspector(selector).plot_score_vs_variance() instead.",
+            FutureWarning,
+            stacklevel=2,
         )
+        from chemotools.inspector._model_selection_inspector import (
+            ModelSelectionInspector,
+        )
+
+        return ModelSelectionInspector(self).plot_score_vs_variance(*args, **kwargs)

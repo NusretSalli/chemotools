@@ -11,12 +11,14 @@ import_optional_dependency(
 )
 
 from ._classification_inspector import ClassificationInspector  # noqa: E402
+from ._model_selection_inspector import ModelSelectionInspector  # noqa: E402
 from ._pca_inspector import PCAInspector  # noqa: E402
 from ._pls_regression_inspector import PLSRegressionInspector  # noqa: E402
 from ._preprocessing_inspector import PreprocessingInspector  # noqa: E402
 
 __all__ = [
     "ClassificationInspector",
+    "ModelSelectionInspector",
     "PCAInspector",
     "PLSRegressionInspector",
     "PreprocessingInspector",

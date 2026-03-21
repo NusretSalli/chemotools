@@ -243,3 +243,50 @@ class ClassificationSummary:
                 )
         lines.append("=" * 60)
         return "\n".join(lines)
+
+
+@dataclass(kw_only=True)
+class ModelSelectionSummary:
+    """Summary for model selection results.
+
+    Attributes
+    ----------
+    estimator_type : str
+        Class name of the base estimator being tuned.
+    scoring : str or None
+        Scoring function used for cross-validation.
+    n_candidates : int
+        Total number of parameter combinations evaluated.
+    best_score : float
+        Best cross-validation score achieved.
+    best_params : dict
+        Parameters of the best candidate.
+    cv_folds : int
+        Number of cross-validation folds used.
+    """
+
+    estimator_type: str
+    scoring: Optional[str]
+    n_candidates: int
+    best_score: float
+    best_params: Dict[str, Any]
+    cv_folds: int
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Return summary as a plain dictionary."""
+        return {k: v for k, v in asdict(self).items() if v is not None}
+
+    def __repr__(self) -> str:  # noqa: D105
+        lines = [
+            "=" * 60,
+            "Model Selection Inspector Summary",
+            "=" * 60,
+            f"  Estimator:            {self.estimator_type}",
+            f"  Scoring:              {self.scoring}",
+            f"  CV folds:             {self.cv_folds}",
+            f"  Total candidates:     {self.n_candidates}",
+            f"  Best score:           {self.best_score:.6f}",
+            f"  Best params:          {self.best_params}",
+            "=" * 60,
+        ]
+        return "\n".join(lines)

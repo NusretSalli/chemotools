@@ -198,8 +198,12 @@ def test_candidate_clone_estimator(fitted_selector, dummy_data_loader):
 
 
 def test_plot_cv_metrics(fitted_selector):
-    """Test plot_cv_metrics returns valid axes."""
-    ax = fitted_selector.plot_cv_metrics()
+    """Test plot_cv_metrics returns valid axes (deprecated path)."""
+    import warnings
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", FutureWarning)
+        ax = fitted_selector.plot_cv_metrics()
 
     assert ax is not None
     assert hasattr(ax, "get_xlabel")
@@ -208,8 +212,12 @@ def test_plot_cv_metrics(fitted_selector):
 
 
 def test_plot_score_vs_variance(fitted_selector):
-    """Test plot_score_vs_variance returns valid axes."""
-    ax = fitted_selector.plot_score_vs_variance()
+    """Test plot_score_vs_variance returns valid axes (deprecated path)."""
+    import warnings
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", FutureWarning)
+        ax = fitted_selector.plot_score_vs_variance()
 
     assert ax is not None
     assert ax.get_xlabel() == "Variance"
@@ -250,11 +258,17 @@ def test_unfitted_selector_raises_errors(unfitted_selector, dummy_data_loader):
     with pytest.raises(Exception):
         unfitted_selector.to_dataframe()
 
-    with pytest.raises(Exception):
-        unfitted_selector.plot_cv_metrics()
+    import warnings
 
-    with pytest.raises(Exception):
-        unfitted_selector.plot_score_vs_variance()
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", FutureWarning)
+        with pytest.raises(Exception):
+            unfitted_selector.plot_cv_metrics()
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", FutureWarning)
+        with pytest.raises(Exception):
+            unfitted_selector.plot_score_vs_variance()
 
 
 # -- Test best_estimator_ usage ------------------------------------------------

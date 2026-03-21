@@ -22,6 +22,8 @@ from sklearn.pipeline import Pipeline
 if TYPE_CHECKING:
     import matplotlib.figure
 
+    from chemotools.model_selection import CandidateSelector
+
 from chemotools.outliers import HotellingT2, Leverage, QResiduals, StudentizedResiduals
 
 from .core.base import InspectorPlotConfig, _BaseInspector
@@ -204,6 +206,69 @@ class PLSRegressionInspector(
         self._y_scores_cache: Dict[str, np.ndarray] = {}
         self._leverage_detector: Optional[Leverage] = None
         self._studentized_detector: Optional[StudentizedResiduals] = None
+
+    @classmethod
+    def from_candidate_selector(
+        cls,
+        selector: CandidateSelector,
+        X_train: np.ndarray,
+        y_train: np.ndarray,
+        *,
+        rank: int = 1,
+        X_test: Optional[np.ndarray] = None,
+        y_test: Optional[np.ndarray] = None,
+        X_val: Optional[np.ndarray] = None,
+        y_val: Optional[np.ndarray] = None,
+        x_axis: Optional[np.ndarray] = None,
+        confidence: float = 0.95,
+    ) -> PLSRegressionInspector:
+        """Create an inspector from a :class:`CandidateSelector` result.
+
+        The candidate identified by *rank* is cloned, fitted on the supplied
+        training data, and wrapped in a new ``PLSRegressionInspector``.
+
+        Parameters
+        ----------
+        selector : CandidateSelector
+            A fitted ``CandidateSelector`` instance.
+        X_train : array-like of shape (n_samples, n_features)
+            Training data used to refit the selected candidate.
+        y_train : array-like of shape (n_samples,)
+            Training targets.
+        rank : int, default=1
+            Rank of the candidate to inspect (1 = best).
+        X_test : array-like, optional
+            Test data.
+        y_test : array-like, optional
+            Test targets.
+        X_val : array-like, optional
+            Validation data.
+        y_val : array-like, optional
+            Validation targets.
+        x_axis : array-like, optional
+            Feature names (e.g. wavenumbers).
+        confidence : float, default=0.95
+            Confidence level for outlier detection.
+
+        Returns
+        -------
+        PLSRegressionInspector
+        """
+        candidate = selector.get_candidate(rank=rank)
+        fitted = candidate.clone_estimator()
+        fitted.fit(X_train, y_train)
+
+        return cls(
+            model=fitted,
+            X_train=X_train,
+            y_train=y_train,
+            X_test=X_test,
+            y_test=y_test,
+            X_val=X_val,
+            y_val=y_val,
+            x_axis=x_axis,
+            confidence=confidence,
+        )
 
     # ==================================================================================
     # Properties (PLS-specific)
