@@ -76,6 +76,14 @@ class ModelSelectionInspector:
         """Return the ranked candidate list."""
         return self._selector.candidates_
 
+    @property
+    def _has_rmse_metrics(self) -> bool:
+        """Whether candidates have RMSE-specific metrics populated."""
+        if not self.candidates:
+            return False
+        first = self.candidates[0]
+        return first.rmsecv is not None
+
     # ------------------------------------------------------------------
     # Summary
     # ------------------------------------------------------------------
@@ -146,22 +154,33 @@ class ModelSelectionInspector:
 
         figures: Dict[str, Figure] = {}
 
-        # CV metrics plot (RMSECV vs RMSE ratio)
+        # CV metrics plot
         try:
             fig_cv, ax_cv = plt.subplots(figsize=figsize)
-            self._create_scatter_plot(
-                x_metric="rmsecv",
-                y_metric="rmse_ratio",
-                color_by=color_by,
-                ax=ax_cv,
-                title="Cross-validation Error vs Overfitting",
-                xlabel="RMSECV",
-                ylabel="RMSECV / RMSEC",
-                hline=show_ratio_threshold,
-            )
+            if self._has_rmse_metrics:
+                self._create_scatter_plot(
+                    x_metric="rmsecv",
+                    y_metric="rmse_ratio",
+                    color_by=color_by,
+                    ax=ax_cv,
+                    title="Cross-validation Error vs Overfitting",
+                    xlabel="RMSECV",
+                    ylabel="RMSECV / RMSEC",
+                    hline=show_ratio_threshold,
+                )
+            else:
+                self._create_scatter_plot(
+                    x_metric="mean_test_score",
+                    y_metric="mean_train_score",
+                    color_by=color_by,
+                    ax=ax_cv,
+                    title="Cross-validation: Test Score vs Train Score",
+                    xlabel="Mean Test Score",
+                    ylabel="Mean Train Score",
+                )
             figures["cv_metrics"] = fig_cv
         except ValueError:
-            pass  # no RMSE data available (scoring wasn't neg_root_mean_squared_error)
+            plt.close(fig_cv)
 
         # Score vs variance plot
         try:
@@ -177,7 +196,7 @@ class ModelSelectionInspector:
             )
             figures["score_vs_variance"] = fig_sv
         except ValueError:
-            pass  # no variance data available
+            plt.close(fig_sv)
 
         return self._track_figures(figures)
 
@@ -187,10 +206,13 @@ class ModelSelectionInspector:
         *,
         ax: Optional[Axes] = None,
         figsize: Tuple[int, int] = (10, 6),
-        show_ratio_threshold: Optional[float] = 1.0,
+        show_ratio_threshold: Optional[float] = None,
         title: Optional[str] = None,
     ) -> Axes:
-        """Plot RMSECV vs RMSE ratio for model selection.
+        """Plot cross-validation metrics for model selection.
+
+        When RMSE-based scoring was used, plots RMSECV vs RMSE ratio.
+        Otherwise, plots Mean Test Score vs Mean Train Score.
 
         Parameters
         ----------
@@ -200,8 +222,9 @@ class ModelSelectionInspector:
             Axes to plot on. If ``None``, creates a new figure.
         figsize : tuple, default=(10, 6)
             Figure size if creating a new figure.
-        show_ratio_threshold : float or None, default=1.0
-            Draws a horizontal line at this RMSE ratio value.
+        show_ratio_threshold : float or None, default=None
+            Draws a horizontal line at this value. Only used for
+            RMSE-based plots.
         title : str, optional
             Custom title.
 
@@ -209,16 +232,27 @@ class ModelSelectionInspector:
         -------
         Axes
         """
+        if self._has_rmse_metrics:
+            return self._create_scatter_plot(
+                x_metric="rmsecv",
+                y_metric="rmse_ratio",
+                color_by=color_by,
+                ax=ax,
+                figsize=figsize,
+                title=title or "Cross-validation Error vs Overfitting",
+                xlabel="RMSECV",
+                ylabel="RMSECV / RMSEC",
+                hline=show_ratio_threshold,
+            )
         return self._create_scatter_plot(
-            x_metric="rmsecv",
-            y_metric="rmse_ratio",
+            x_metric="mean_test_score",
+            y_metric="mean_train_score",
             color_by=color_by,
             ax=ax,
             figsize=figsize,
-            title=title or "Cross-validation Error vs Overfitting",
-            xlabel="RMSECV",
-            ylabel="RMSECV / RMSEC",
-            hline=show_ratio_threshold,
+            title=title or "Cross-validation: Test Score vs Train Score",
+            xlabel="Mean Test Score",
+            ylabel="Mean Train Score",
         )
 
     def plot_score_vs_variance(

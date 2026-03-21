@@ -6,11 +6,13 @@ import pytest
 from sklearn.cross_decomposition import PLSRegression
 from sklearn.decomposition import PCA
 from sklearn.linear_model import Ridge
+from sklearn.svm import SVC
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 
 from chemotools.inspector import (  # noqa: E402
+    ClassificationInspector,
     ModelSelectionInspector,
     PCAInspector,
     PLSRegressionInspector,
@@ -336,3 +338,168 @@ class TestPCAInspectorFromCandidateSelector:
 
         scores = inspector.get_scores("train")
         assert scores.shape[0] == 60
+
+
+# ==============================================================================
+# Classification fixtures
+# ==============================================================================
+
+
+@pytest.fixture
+def classification_data():
+    """Generate simple binary classification data with train/test split."""
+    rng = np.random.default_rng(42)
+    X = rng.normal(size=(80, 5))
+    y = (X[:, 0] + X[:, 1] > 0).astype(int)
+    return X[:60], y[:60], X[60:], y[60:]
+
+
+@pytest.fixture
+def svc_selector(classification_data):
+    """Return a fitted CandidateSelector wrapping SVC with accuracy scoring."""
+    X_train, y_train, _, _ = classification_data
+    selector = CandidateSelector(
+        estimator=SVC(probability=True),
+        param_grid={"C": [0.1, 1.0, 10.0]},
+        cv=3,
+        scoring="accuracy",
+        return_train_score=True,
+        n_jobs=1,
+    )
+    selector.fit(X_train, y_train)
+    return selector
+
+
+# ==============================================================================
+# ClassificationInspector.from_candidate_selector
+# ==============================================================================
+
+
+class TestClassificationInspectorFromCandidateSelector:
+    """Test the from_candidate_selector class method on ClassificationInspector."""
+
+    def test_basic_creation(self, svc_selector, classification_data):
+        X_train, y_train, X_test, y_test = classification_data
+
+        inspector = ClassificationInspector.from_candidate_selector(
+            svc_selector,
+            X_train,
+            y_train,
+            X_test=X_test,
+            y_test=y_test,
+        )
+
+        assert isinstance(inspector, ClassificationInspector)
+        assert inspector.n_samples["train"] == 60
+        assert inspector.n_samples["test"] == 20
+
+    def test_rank_selection(self, svc_selector, classification_data):
+        X_train, y_train, _, _ = classification_data
+
+        inspector_1 = ClassificationInspector.from_candidate_selector(
+            svc_selector, X_train, y_train, rank=1
+        )
+        inspector_2 = ClassificationInspector.from_candidate_selector(
+            svc_selector, X_train, y_train, rank=2
+        )
+
+        assert isinstance(inspector_1, ClassificationInspector)
+        assert isinstance(inspector_2, ClassificationInspector)
+
+    def test_invalid_rank_raises(self, svc_selector, classification_data):
+        X_train, y_train, _, _ = classification_data
+        with pytest.raises(ValueError, match="No candidate with rank"):
+            ClassificationInspector.from_candidate_selector(
+                svc_selector, X_train, y_train, rank=999
+            )
+
+    def test_with_x_axis(self, svc_selector, classification_data):
+        X_train, y_train, _, _ = classification_data
+        x_axis = np.arange(X_train.shape[1])
+
+        inspector = ClassificationInspector.from_candidate_selector(
+            svc_selector, X_train, y_train, x_axis=x_axis
+        )
+
+        np.testing.assert_array_equal(inspector.feature_names, x_axis)
+
+    def test_summary_works(self, svc_selector, classification_data):
+        X_train, y_train, _, _ = classification_data
+        inspector = ClassificationInspector.from_candidate_selector(
+            svc_selector, X_train, y_train
+        )
+
+        summary = inspector.summary()
+        assert summary is not None
+        assert summary.n_classes == 2
+
+    def test_metrics_work(self, svc_selector, classification_data):
+        X_train, y_train, X_test, y_test = classification_data
+        inspector = ClassificationInspector.from_candidate_selector(
+            svc_selector, X_train, y_train, X_test=X_test, y_test=y_test
+        )
+
+        train_acc = inspector.get_accuracy("train")
+        test_acc = inspector.get_accuracy("test")
+        assert 0 <= train_acc <= 1
+        assert 0 <= test_acc <= 1
+
+    def test_has_predict_proba(self, svc_selector, classification_data):
+        X_train, y_train, _, _ = classification_data
+        inspector = ClassificationInspector.from_candidate_selector(
+            svc_selector, X_train, y_train
+        )
+
+        assert inspector.has_predict_proba is True
+
+    def test_classes(self, svc_selector, classification_data):
+        X_train, y_train, _, _ = classification_data
+        inspector = ClassificationInspector.from_candidate_selector(
+            svc_selector, X_train, y_train
+        )
+
+        assert set(inspector.classes) == {0, 1}
+
+
+# ==============================================================================
+# ModelSelectionInspector with classification scoring
+# ==============================================================================
+
+
+class TestModelSelectionInspectorClassification:
+    """Test ModelSelectionInspector with non-RMSE (classification) scoring."""
+
+    def test_inspect_returns_figures(self, svc_selector):
+        inspector = ModelSelectionInspector(svc_selector)
+        figs = inspector.inspect()
+
+        assert isinstance(figs, dict)
+        # cv_metrics should use generic test/train scores
+        assert "cv_metrics" in figs
+        assert "score_vs_variance" in figs
+        for fig in figs.values():
+            assert isinstance(fig, plt.Figure)
+
+    def test_plot_cv_metrics_uses_generic_labels(self, svc_selector):
+        inspector = ModelSelectionInspector(svc_selector)
+        ax = inspector.plot_cv_metrics()
+
+        assert ax is not None
+        assert ax.get_xlabel() == "Mean Test Score"
+        assert ax.get_ylabel() == "Mean Train Score"
+
+    def test_plot_score_vs_variance(self, svc_selector):
+        inspector = ModelSelectionInspector(svc_selector)
+        ax = inspector.plot_score_vs_variance()
+
+        assert ax is not None
+        assert ax.get_xlabel() == "Variance"
+        assert ax.get_ylabel() == "Mean Test Score"
+
+    def test_summary(self, svc_selector):
+        inspector = ModelSelectionInspector(svc_selector)
+        summary = inspector.summary()
+
+        assert summary.estimator_type == "SVC"
+        assert summary.scoring == "accuracy"
+        assert summary.n_candidates == 3
